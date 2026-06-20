@@ -36,12 +36,13 @@ The project combines deterministic local analysis with optional OpenAI-powered r
 - Presentation: The first screen demonstrates the full value flow from profile to score to recommendations.
 - Platform readiness: Build passes and the project includes README, screenshot, demo script, and submission copy.
 
-## Links to fill before final NAS submission
+## Submission links
 
-- Live demo URL: TODO
-- Source code URL: TODO
+- Live demo URL: https://beasiswacoach-ai.vercel.app
+- Source code URL: https://github.com/aqilaziz/beasiswacoach-ai
 - Demo video URL: TODO
-- LinkedIn post URL: TODO
+- LinkedIn post URL: https://www.linkedin.com/feed/update/urn:li:share:7474219876170244096/
+- LinkedIn group post URL: https://www.linkedin.com/feed/update/urn:li:groupPost:9371112-7474225017006813184
 
 ## Local assets
 
@@ -78,8 +79,8 @@ The problem: many students have potential, but they struggle to structure their 
 
 The AI workflow combines profile analysis, rule-based readiness scoring, scholarship-fit matching, generated writing guidance, interview prompts, and optional OpenAI-powered review.
 
-Demo: [insert deployed app link]
-Source: [insert GitHub link]
+Demo: https://beasiswacoach-ai.vercel.app
+Source: https://github.com/aqilaziz/beasiswacoach-ai
 
 #BuildingAIApplication #DecodingDataScience #AIForBuilders #Scholarship #ArtificialIntelligence
 ```

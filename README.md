@@ -65,8 +65,8 @@ Recommended options:
 
 ## Final submission assets
 
-- Deployed app URL.
-- GitHub repository or source folder.
+- Deployed app URL: https://beasiswacoach-ai.vercel.app
+- GitHub repository: https://github.com/aqilaziz/beasiswacoach-ai
 - README with problem, solution, features, and run instructions.
 - 1-2 minute demo video showing profile analysis and exported application pack.
 - Screenshot of the app homepage and generated outputs.
@@ -83,8 +83,8 @@ The problem: many students have potential, but they struggle to structure their 
 
 The AI workflow combines profile analysis, rule-based readiness scoring, scholarship-fit matching, generated writing guidance, interview prompts, and optional OpenAI-powered review.
 
-Demo: [insert deployed app link]
-Source: [insert GitHub link]
+Demo: https://beasiswacoach-ai.vercel.app
+Source: https://github.com/aqilaziz/beasiswacoach-ai
 
 #BuildingAIApplication #DecodingDataScience #AIForBuilders #Scholarship #ArtificialIntelligence
 ```
