@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Day 2 Progress Workbook - BeasiswaCoach AI</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #111827; line-height: 1.45; margin: 42px; }
+    h1 { font-size: 24px; margin-bottom: 4px; }
+    h2 { font-size: 16px; margin-top: 22px; margin-bottom: 8px; }
+    p, li { font-size: 11.5pt; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; }
+    td { border: 1px solid #d1d5db; padding: 8px; vertical-align: top; font-size: 11pt; }
+    .label { width: 30%; font-weight: bold; background: #f3f4f6; }
+    .ok { color: #065f46; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Day 2 Progress Workbook: BeasiswaCoach AI</h1>
+  <p>Building AI Application Challenge | Environment Setup and Initial Development</p>
+
+  <table>
+    <tr><td class="label">Application</td><td>BeasiswaCoach AI</td></tr>
+    <tr><td class="label">Selected path</td><td>LLM/API Integration Path</td></tr>
+    <tr><td class="label">Live demo</td><td>https://beasiswacoach-ai.vercel.app</td></tr>
+    <tr><td class="label">GitHub repository</td><td>https://github.com/aqilaziz/beasiswacoach-ai</td></tr>
+  </table>
+
+  <h2>1. Development Environment Setup</h2>
+  <ul>
+    <li><span class="ok">Completed:</span> Created a Vite + React + TypeScript project for the AI application.</li>
+    <li><span class="ok">Completed:</span> Installed application dependencies including React, ReactDOM, Vite, TypeScript, and lucide-react.</li>
+    <li><span class="ok">Completed:</span> Configured TypeScript strict mode and Vite React plugin.</li>
+    <li><span class="ok">Completed:</span> Added project scripts for development, build, and preview.</li>
+    <li><span class="ok">Completed:</span> Added .gitignore rules for node_modules, build output, environment files, logs, and Vercel metadata.</li>
+  </ul>
+
+  <h2>2. API and AI Integration Plan</h2>
+  <p>The app uses a hybrid approach. The core scholarship readiness workflow runs in the browser through deterministic scoring and matching logic, so the demo works immediately without a stored secret key. For the LLM/API path, an optional OpenAI Chat Completions review is included. The user can enter an API key at runtime in the browser to receive deeper coaching. No key is committed to source control or stored in the repository.</p>
+
+  <h2>3. GitHub and Version Control</h2>
+  <ul>
+    <li><span class="ok">Completed:</span> Initialized a Git repository for the project.</li>
+    <li><span class="ok">Completed:</span> Published the source code to GitHub.</li>
+    <li><span class="ok">Completed:</span> Committed implementation, documentation, submission assets, deployment links, and Day 1 proposal.</li>
+    <li>Repository: https://github.com/aqilaziz/beasiswacoach-ai</li>
+  </ul>
+
+  <h2>4. Initial Development Work Completed</h2>
+  <ul>
+    <li>Built the main scholarship profile editor.</li>
+    <li>Implemented readiness scoring across academic fit, portfolio strength, leadership story, need clarity, and execution readiness.</li>
+    <li>Implemented scholarship match recommendations with fit percentages and next actions.</li>
+    <li>Implemented 90-day roadmap generation, essay outline generation, interview question generation, and submission summary.</li>
+    <li>Implemented exportable JSON application pack.</li>
+    <li>Implemented optional AI coach review using OpenAI when a runtime API key is provided.</li>
+    <li>Designed a responsive interface for judges to test the full workflow from the first screen.</li>
+  </ul>
+
+  <h2>5. Build and Deployment Evidence</h2>
+  <ul>
+    <li><span class="ok">Completed:</span> Production build command runs successfully: npm run build.</li>
+    <li><span class="ok">Completed:</span> Deployed the app to Vercel.</li>
+    <li><span class="ok">Completed:</span> Verified the live page title and content after deployment.</li>
+    <li>Live demo: https://beasiswacoach-ai.vercel.app</li>
+  </ul>
+
+  <h2>6. Current Status and Next Steps</h2>
+  <p>BeasiswaCoach AI is now past the initial setup stage and already has a working deployed prototype. The next work will focus on improving AI review quality, strengthening security around runtime API input, polishing the final demo flow, and preparing the final challenge video and public submission post.</p>
+</body>
+</html>
