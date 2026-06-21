@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Day 1 Project Proposal - BeasiswaCoach AI</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #111827; line-height: 1.45; margin: 42px; }
+    h1 { font-size: 24px; margin-bottom: 4px; }
+    h2 { font-size: 16px; margin-top: 22px; margin-bottom: 8px; }
+    p, li { font-size: 11.5pt; }
+    .meta { color: #374151; margin-top: 0; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; }
+    td { border: 1px solid #d1d5db; padding: 8px; vertical-align: top; font-size: 11pt; }
+    .label { width: 28%; font-weight: bold; background: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <h1>Day 1 Project Proposal: BeasiswaCoach AI</h1>
+  <p class="meta">Building AI Application Challenge | LLM/API Integration Path</p>
+
+  <table>
+    <tr><td class="label">Application name</td><td>BeasiswaCoach AI</td></tr>
+    <tr><td class="label">Live demo</td><td>https://beasiswacoach-ai.vercel.app</td></tr>
+    <tr><td class="label">Source code</td><td>https://github.com/aqilaziz/beasiswacoach-ai</td></tr>
+    <tr><td class="label">Target users</td><td>Indonesian students preparing scholarship applications with limited access to paid counseling.</td></tr>
+  </table>
+
+  <h2>1. Problem Statement</h2>
+  <p>Many students have strong academic potential, leadership experience, or financial need, but they struggle to translate those details into a clear scholarship strategy. They often do not know which scholarship category fits them, what evidence to prepare, how ready they are, or what actions should be prioritized before the deadline.</p>
+
+  <h2>2. Project Concept</h2>
+  <p>BeasiswaCoach AI is a scholarship strategy assistant that turns a student profile into a practical application plan. The app analyzes academic record, English readiness, achievements, leadership, financial need, target field, and deadline plan. It then produces readiness scoring, scholarship matches, a 90-day roadmap, essay direction, interview practice questions, and an exportable application pack.</p>
+
+  <h2>3. Objectives</h2>
+  <ul>
+    <li>Help students understand their scholarship readiness in a structured and measurable way.</li>
+    <li>Recommend scholarship categories based on field, goals, achievements, need context, and deadline readiness.</li>
+    <li>Generate practical preparation assets: roadmap, essay outline, interview questions, and application summary.</li>
+    <li>Demonstrate an AI application workflow that remains useful without a stored secret key and can optionally use OpenAI review at runtime.</li>
+  </ul>
+
+  <h2>4. Selected Path and Technical Approach</h2>
+  <p>The selected path is the LLM/API Integration Path. The application is built with React, TypeScript, and Vite. The core workflow uses deterministic profile analysis and scholarship-fit scoring so judges can test the app immediately. An optional OpenAI Chat Completions integration can provide deeper coaching when the user enters an API key in the browser. No API key is stored in the project or repository.</p>
+
+  <h2>5. Planned AI Workflow</h2>
+  <ol>
+    <li>User edits a student profile.</li>
+    <li>The app calculates readiness across academic fit, portfolio strength, leadership story, need clarity, and execution readiness.</li>
+    <li>The app ranks scholarship opportunities and explains concrete next actions.</li>
+    <li>The app generates a 90-day roadmap, essay outline, interview questions, and submission summary.</li>
+    <li>The user can export the profile and outputs as a JSON application pack.</li>
+    <li>Optional OpenAI review gives a concise coach-style critique and improvement suggestions.</li>
+  </ol>
+
+  <h2>6. Expected Impact</h2>
+  <p>BeasiswaCoach AI is designed for real-world use by students who need clear guidance before applying for scholarships. It reduces confusion, makes preparation more actionable, and helps students convert their existing experiences into stronger application evidence.</p>
+
+  <h2>7. Current Status</h2>
+  <p>The first working version has already been implemented, built successfully, deployed to Vercel, and published on GitHub. The next challenge days can focus on improving AI review quality, presentation, security, testing, and final demo materials.</p>
+</body>
+</html>
