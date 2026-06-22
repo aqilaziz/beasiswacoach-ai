@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowRight,
@@ -12,8 +12,12 @@ import {
   GraduationCap,
   Loader2,
   Mic,
+  RefreshCw,
   Sparkles,
   Target,
+  ThumbsDown,
+  ThumbsUp,
+  Zap,
 } from "lucide-react";
 import "./styles.css";
 
@@ -252,7 +256,43 @@ function makeSubmissionSummary(
   return `BeasiswaCoach AI helps ${profile.educationLevel} students build a scholarship strategy from scattered profile notes. For ${profile.name}, the app estimates ${readiness}/100 readiness, recommends ${topScholarship.name} as the strongest first target, and generates a roadmap, essay outline, interview practice, and submission checklist.`;
 }
 
-async function requestAiReview(profile: StudentProfile, apiKey: string) {
+type ChatMessage = {
+  role: "system" | "user" | "assistant";
+  content: string;
+};
+
+type FeedbackEntry = {
+  question: string;
+  rating: "up" | "down";
+  comment: string;
+  timestamp: string;
+};
+
+// Response cache to reduce redundant API calls (performance tuning)
+const responseCache = new Map<string, string>();
+
+function cacheKey(profile: StudentProfile, messages: ChatMessage[]) {
+  return JSON.stringify({ profile, messages });
+}
+
+async function requestAiReview(
+  profile: StudentProfile,
+  apiKey: string,
+  conversation: ChatMessage[],
+  retryCount = 0,
+): Promise<string> {
+  const key = cacheKey(profile, conversation);
+  const cached = responseCache.get(key);
+  if (cached) {
+    return cached;
+  }
+
+  const systemMessage: ChatMessage = {
+    role: "system",
+    content:
+      "You are a scholarship admissions coach for Indonesian students. Give practical, honest, specific advice. Avoid inventing real scholarship deadlines. Reference previous messages for context.",
+  };
+
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -261,27 +301,27 @@ async function requestAiReview(profile: StudentProfile, apiKey: string) {
     },
     body: JSON.stringify({
       model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a scholarship admissions coach for Indonesian students. Give practical, honest, specific advice. Avoid inventing real scholarship deadlines.",
-        },
-        {
-          role: "user",
-          content: `Review this student profile and suggest the 5 highest-impact improvements: ${JSON.stringify(profile)}`,
-        },
-      ],
+      messages: [systemMessage, ...conversation],
       temperature: 0.35,
+      max_tokens: 600,
     }),
   });
 
+  // Error handling: retry on rate-limit (429) or server error (5xx)
   if (!response.ok) {
-    throw new Error(`AI review failed with status ${response.status}`);
+    if ((response.status === 429 || response.status >= 500) && retryCount < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)));
+      return requestAiReview(profile, apiKey, conversation, retryCount + 1);
+    }
+    throw new Error(
+      `AI review failed with status ${response.status}. ${response.status === 401 ? "Check your API key." : "Try again later."}`,
+    );
   }
 
   const data = await response.json();
-  return data.choices?.[0]?.message?.content ?? "No AI review returned.";
+  const content = data.choices?.[0]?.message?.content ?? "No AI review returned.";
+  responseCache.set(key, content);
+  return content;
 }
 
 function copyText(text: string) {
@@ -320,6 +360,11 @@ function App() {
   const [aiFeedback, setAiFeedback] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [conversation, setConversation] = useState<ChatMessage[]>([]);
+  const [feedbackLog, setFeedbackLog] = useState<FeedbackEntry[]>([]);
+  const [cacheHits, setCacheHits] = useState(0);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const readiness = useMemo(() => calculateReadiness(profile), [profile]);
   const matches = useMemo(() => matchScholarships(profile), [profile]);
@@ -338,6 +383,10 @@ function App() {
     setProfile((current) => ({ ...current, [field]: value }));
   };
 
+  const scrollToChatBottom = useCallback(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
   const runReview = async () => {
     setError("");
     setIsLoading(true);
@@ -348,8 +397,17 @@ function App() {
         );
         return;
       }
-      const feedback = await requestAiReview(profile, apiKey.trim());
+      const initialMessages: ChatMessage[] = [
+        {
+          role: "user",
+          content: `Review this student profile and suggest the 5 highest-impact improvements: ${JSON.stringify(profile)}`,
+        },
+      ];
+      setConversation(initialMessages);
+      const feedback = await requestAiReview(profile, apiKey.trim(), initialMessages);
+      setConversation((prev) => [...prev, { role: "assistant", content: feedback }]);
       setAiFeedback(feedback);
+      scrollToChatBottom();
     } catch (caughtError) {
       setError(
         caughtError instanceof Error
@@ -359,6 +417,46 @@ function App() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const sendChatMessage = async () => {
+    if (!chatInput.trim() || !apiKey.trim()) return;
+    setError("");
+    setIsLoading(true);
+    const userMessage: ChatMessage = { role: "user", content: chatInput.trim() };
+    const newConversation = [...conversation, userMessage];
+    setConversation(newConversation);
+    setChatInput("");
+    scrollToChatBottom();
+    try {
+      const reply = await requestAiReview(profile, apiKey.trim(), newConversation);
+      setConversation((prev) => [...prev, { role: "assistant", content: reply }]);
+      setAiFeedback(reply);
+      scrollToChatBottom();
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Unable to get AI response.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submitFeedback = (rating: "up" | "down") => {
+    const entry: FeedbackEntry = {
+      question: aiFeedback.slice(0, 200),
+      rating,
+      comment: "",
+      timestamp: new Date().toISOString(),
+    };
+    setFeedbackLog((prev) => [...prev, entry]);
+  };
+
+  const clearCache = () => {
+    responseCache.clear();
+    setCacheHits(0);
   };
 
   return (
@@ -488,8 +586,87 @@ function App() {
               )}
               Review application
             </button>
-            {error && <p className="error-text">{error}</p>}
-            {aiFeedback && <p className="mentor-note">{aiFeedback}</p>}
+            {error && (
+              <p className="error-text">
+                {error}{" "}
+                <button
+                  type="button"
+                  className="retry-button"
+                  onClick={runReview}
+                  disabled={isLoading}
+                >
+                  <RefreshCw size={14} /> Retry
+                </button>
+              </p>
+            )}
+            {aiFeedback && (
+              <div className="feedback-row">
+                <p className="mentor-note">{aiFeedback}</p>
+                <div className="feedback-buttons">
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => submitFeedback("up")}
+                    aria-label="Helpful"
+                  >
+                    <ThumbsUp size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => submitFeedback("down")}
+                    aria-label="Not helpful"
+                  >
+                    <ThumbsDown size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+            {conversation.length > 0 && (
+              <div className="chat-thread">
+                {conversation.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={msg.role === "user" ? "chat-bubble user" : "chat-bubble assistant"}
+                  >
+                    {msg.content}
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+            )}
+            {apiKey.trim() && conversation.length > 0 && (
+              <div className="chat-input-row">
+                <input
+                  type="text"
+                  value={chatInput}
+                  placeholder="Ask a follow-up question..."
+                  onChange={(event) => setChatInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !isLoading) {
+                      sendChatMessage();
+                    }
+                  }}
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={sendChatMessage}
+                  disabled={isLoading || !chatInput.trim()}
+                >
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            )}
+            {feedbackLog.length > 0 && (
+              <p className="cache-info">
+                <Zap size={14} /> {feedbackLog.length} feedback{" "}
+                {feedbackLog.length === 1 ? "entry" : "entries"} logged
+              </p>
+            )}
+            <button type="button" className="cache-clear" onClick={clearCache}>
+              <RefreshCw size={14} /> Clear response cache
+            </button>
           </section>
         </aside>
       </section>
