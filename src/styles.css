@@ -783,3 +783,235 @@ input:focus {
   position: absolute;
   left: -20px;
 }
+
+/* Day 5: Integration of Model/API with Interface */
+
+/* Connection Status Indicator */
+.connection-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-left: auto;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.connection-status.disconnected {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.connection-status.disconnected .status-dot {
+  background: #9ca3af;
+}
+
+.connection-status.connecting {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.connection-status.connecting .status-dot {
+  background: #f59e0b;
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+.connection-status.connected {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.connection-status.connected .status-dot {
+  background: #10b981;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.connection-status.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.connection-status.error .status-dot {
+  background: #ef4444;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+}
+
+/* Streaming Response */
+.streaming-response {
+  margin: 16px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border-radius: 12px;
+  border: 1px solid #86efac;
+  position: relative;
+}
+
+.streaming-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #166534;
+}
+
+.typing-cursor {
+  display: inline-block;
+  animation: blink-cursor 0.8s step-end infinite;
+  color: #184a3a;
+  font-weight: 700;
+}
+
+@keyframes blink-cursor {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Rendered Markdown */
+.rendered-markdown {
+  line-height: 1.7;
+}
+
+.rendered-markdown h1,
+.rendered-markdown h2,
+.rendered-markdown h3 {
+  margin: 16px 0 8px;
+  color: #184a3a;
+}
+
+.rendered-markdown h1 {
+  font-size: 1.3rem;
+}
+.rendered-markdown h2 {
+  font-size: 1.15rem;
+}
+.rendered-markdown h3 {
+  font-size: 1.05rem;
+}
+
+.rendered-markdown p {
+  margin: 8px 0;
+}
+
+.rendered-markdown ul {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.rendered-markdown li {
+  margin: 4px 0;
+}
+
+.rendered-markdown strong {
+  color: #0f3529;
+}
+
+.rendered-markdown code {
+  background: #e8f5e9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: "Fira Code", monospace;
+}
+
+.rendered-markdown pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.rendered-markdown pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+/* Quick Actions */
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.quick-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.quick-action-btn {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 16px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.quick-action-btn:hover {
+  background: #bae6fd;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgb(3 105 161 / 12%);
+}
+
+/* Coach Actions Row */
+.coach-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Chat bubble streaming enhancement */
+.chat-bubble.streaming {
+  border-left: 3px solid #10b981;
+  animation: fade-in 300ms ease;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

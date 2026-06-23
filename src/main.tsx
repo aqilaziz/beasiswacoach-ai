@@ -400,11 +400,13 @@ async function requestAiReview(
   apiKey: string,
   conversation: ChatMessage[],
   retryCount = 0,
+  onStream?: (partial: string) => void,
 ): Promise<string> {
   const key = cacheKey(profile, conversation);
   const cached = responseCache.get(key);
   if (cached) {
     metricsHistory.cacheHits++;
+    onStream?.(cached);
     return cached;
   }
 
@@ -427,11 +429,9 @@ async function requestAiReview(
       messages: [systemMessage, ...conversation],
       temperature: 0.35,
       max_tokens: 600,
+      stream: !!onStream,
     }),
   });
-
-  const endTime = performance.now();
-  const responseTime = Math.round(endTime - startTime);
 
   // Error handling: retry on rate-limit (429) or server error (5xx)
   if (!response.ok) {
@@ -442,17 +442,63 @@ async function requestAiReview(
       await new Promise((resolve) =>
         setTimeout(resolve, 1000 * (retryCount + 1)),
       );
-      return requestAiReview(profile, apiKey, conversation, retryCount + 1);
+      return requestAiReview(
+        profile,
+        apiKey,
+        conversation,
+        retryCount + 1,
+        onStream,
+      );
     }
     throw new Error(
       `AI review failed with status ${response.status}. ${response.status === 401 ? "Check your API key." : "Try again later."}`,
     );
   }
 
-  const data = await response.json();
-  const content =
-    data.choices?.[0]?.message?.content ?? "No AI review returned.";
-  const tokenCount = data.usage?.total_tokens ?? 0;
+  let content = "";
+  let tokenCount = 0;
+
+  // Handle streaming response
+  if (onStream && response.body) {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (data === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta?.content || "";
+            if (delta) {
+              content += delta;
+              onStream(content);
+            }
+          } catch {
+            // Skip malformed JSON
+          }
+        }
+      }
+    }
+  } else {
+    // Non-streaming fallback
+    const data = await response.json();
+    content = data.choices?.[0]?.message?.content ?? "No AI review returned.";
+    tokenCount = data.usage?.total_tokens ?? 0;
+  }
+
+  const endTime = performance.now();
+  const responseTime = Math.round(endTime - startTime);
 
   // Update metrics
   metricsHistory.totalRequests++;
@@ -470,6 +516,36 @@ async function requestAiReview(
 
   responseCache.set(key, content);
   return content;
+}
+
+function renderMarkdown(text: string): string {
+  return (
+    text
+      // Headers
+      .replace(/^### (.*$)/gim, "<h3>$1</h3>")
+      .replace(/^## (.*$)/gim, "<h2>$1</h2>")
+      .replace(/^# (.*$)/gim, "<h1>$1</h1>")
+      // Bold
+      .replace(/\*\*(.*?)\*\*/gim, "<strong>$1</strong>")
+      // Italic
+      .replace(/\*(.*?)\*/gim, "<em>$1</em>")
+      // Bullet points
+      .replace(/^\s*[-•]\s+(.*)$/gim, "<li>$1</li>")
+      // Numbered lists
+      .replace(/^\s*\d+\.\s+(.*)$/gim, "<li>$1</li>")
+      // Wrap consecutive <li> in <ul>
+      .replace(/(<li>.*<\/li>\n?)+/gim, "<ul>$&</ul>")
+      // Code blocks
+      .replace(/```([\s\S]*?)```/gim, "<pre><code>$1</code></pre>")
+      // Inline code
+      .replace(/`(.*?)`/gim, "<code>$1</code>")
+      // Line breaks
+      .replace(/\n\n/gim, "</p><p>")
+      .replace(/\n/gim, "<br/>")
+      // Wrap in paragraph
+      .replace(/^(?!<[huplo])/gim, "<p>")
+      .replace(/(?!<\/[huplo]>).*$/gim, "$&</p>")
+  );
 }
 
 function copyText(text: string) {
@@ -502,10 +578,13 @@ function downloadPack(
   URL.revokeObjectURL(url);
 }
 
+type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
+
 function App() {
   const [profile, setProfile] = useState(initialProfile);
   const [apiKey, setApiKey] = useState("");
   const [aiFeedback, setAiFeedback] = useState("");
+  const [streamingContent, setStreamingContent] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [chatInput, setChatInput] = useState("");
@@ -516,6 +595,8 @@ function App() {
   const [responseQuality, setResponseQuality] =
     useState<ResponseQuality | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [connectionStatus, setConnectionStatus] =
+    useState<ConnectionStatus>("disconnected");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const readiness = useMemo(() => calculateReadiness(profile), [profile]);
@@ -543,12 +624,15 @@ function App() {
     setError("");
     setValidationErrors([]);
     setIsLoading(true);
+    setStreamingContent("");
+    setConnectionStatus("connecting");
 
     // Validate profile before sending to API
     const validation = validateProfileInput(profile);
     if (!validation.isValid) {
       setValidationErrors(validation.errors);
       setIsLoading(false);
+      setConnectionStatus("disconnected");
       return;
     }
 
@@ -557,6 +641,7 @@ function App() {
         setAiFeedback(
           "Local AI coach mode: strengthen the profile by adding one public portfolio URL, one quantified leadership result, one English-test timeline, and one specific scholarship target. The application will feel stronger if every claim has proof: certificate, project link, screenshot, recommendation, or reflection.",
         );
+        setConnectionStatus("disconnected");
         return;
       }
       const initialMessages: ChatMessage[] = [
@@ -566,16 +651,24 @@ function App() {
         },
       ];
       setConversation(initialMessages);
+
       const feedback = await requestAiReview(
         profile,
         apiKey.trim(),
         initialMessages,
+        0,
+        (partial) => {
+          setStreamingContent(partial);
+          setConnectionStatus("connected");
+        },
       );
+
       setConversation((prev) => [
         ...prev,
         { role: "assistant", content: feedback },
       ]);
       setAiFeedback(feedback);
+      setStreamingContent("");
 
       // Evaluate response quality
       const quality = evaluateResponseQuality(feedback, profile);
@@ -592,8 +685,12 @@ function App() {
           ? caughtError.message
           : "Unable to run AI review.",
       );
+      setConnectionStatus("error");
     } finally {
       setIsLoading(false);
+      if (connectionStatus !== "error") {
+        setConnectionStatus("disconnected");
+      }
     }
   };
 
@@ -601,6 +698,8 @@ function App() {
     if (!chatInput.trim() || !apiKey.trim()) return;
     setError("");
     setIsLoading(true);
+    setStreamingContent("");
+    setConnectionStatus("connecting");
 
     // Preprocess input
     const processedInput = preprocessInput(chatInput.trim());
@@ -615,12 +714,19 @@ function App() {
         profile,
         apiKey.trim(),
         newConversation,
+        0,
+        (partial) => {
+          setStreamingContent(partial);
+          setConnectionStatus("connected");
+        },
       );
+
       setConversation((prev) => [
         ...prev,
         { role: "assistant", content: reply },
       ]);
       setAiFeedback(reply);
+      setStreamingContent("");
 
       // Evaluate response quality
       const quality = evaluateResponseQuality(reply, profile);
@@ -637,8 +743,12 @@ function App() {
           ? caughtError.message
           : "Unable to get AI response.",
       );
+      setConnectionStatus("error");
     } finally {
       setIsLoading(false);
+      if (connectionStatus !== "error") {
+        setConnectionStatus("disconnected");
+      }
     }
   };
 
@@ -656,6 +766,66 @@ function App() {
     responseCache.clear();
     setCacheHits(0);
   };
+
+  const exportConversation = () => {
+    const exportData = {
+      appName: "BeasiswaCoach AI",
+      exportedAt: new Date().toISOString(),
+      profile,
+      conversation,
+      metrics: metricsHistory,
+      feedbackLog,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `beasiswacoach-conversation-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const quickActions = useMemo(() => {
+    const actions: { label: string; prompt: string }[] = [];
+    const combined = Object.values(profile).join(" ").toLowerCase();
+
+    if (/github|portfolio|project/.test(combined)) {
+      actions.push({
+        label: "Improve portfolio",
+        prompt:
+          "How can I make my portfolio stand out for scholarship applications?",
+      });
+    }
+    if (/ielts|toefl|english/.test(combined)) {
+      actions.push({
+        label: "English prep",
+        prompt:
+          "What's the best strategy to prepare for English proficiency tests?",
+      });
+    }
+    if (profile.leadership.length > 50) {
+      actions.push({
+        label: "Strengthen leadership",
+        prompt: "How can I better present my leadership experience in essays?",
+      });
+    }
+    if (profile.financialNeed.length > 50) {
+      actions.push({
+        label: "Financial narrative",
+        prompt: "How should I write about financial need in a compelling way?",
+      });
+    }
+    if (actions.length === 0) {
+      actions.push({
+        label: "Get started",
+        prompt:
+          "What are the first 3 things I should do to start my scholarship application?",
+      });
+    }
+    return actions.slice(0, 3);
+  }, [profile]);
 
   return (
     <main className="app-shell">
@@ -876,6 +1046,16 @@ function App() {
             <div className="section-heading compact">
               <BrainCircuit size={20} />
               <h2>AI Coach Review</h2>
+              <span className={`connection-status ${connectionStatus}`}>
+                <span className="status-dot" />
+                {connectionStatus === "connected"
+                  ? "Live"
+                  : connectionStatus === "connecting"
+                    ? "Connecting..."
+                    : connectionStatus === "error"
+                      ? "Error"
+                      : "Ready"}
+              </span>
             </div>
             <label className="api-field">
               <span>OpenAI API key</span>
@@ -897,8 +1077,28 @@ function App() {
               ) : (
                 <Sparkles size={18} />
               )}
-              Review application
+              {isLoading ? "AI is thinking..." : "Review application"}
             </button>
+
+            {/* Quick Actions - Context-aware prompts */}
+            {apiKey.trim() && !isLoading && (
+              <div className="quick-actions">
+                <span className="quick-label">Quick ask:</span>
+                {quickActions.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    className="quick-action-btn"
+                    onClick={() => {
+                      setChatInput(action.prompt);
+                    }}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {error && (
               <p className="error-text">
                 {error}{" "}
@@ -912,9 +1112,31 @@ function App() {
                 </button>
               </p>
             )}
-            {aiFeedback && (
+
+            {/* Streaming content display */}
+            {streamingContent && (
+              <div className="streaming-response">
+                <div className="streaming-header">
+                  <Loader2 className="spin" size={14} />
+                  <span>AI is responding...</span>
+                </div>
+                <div
+                  className="mentor-note rendered-markdown"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(streamingContent),
+                  }}
+                />
+              </div>
+            )}
+
+            {aiFeedback && !streamingContent && (
               <div className="feedback-row">
-                <p className="mentor-note">{aiFeedback}</p>
+                <div
+                  className="mentor-note rendered-markdown"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMarkdown(aiFeedback),
+                  }}
+                />
                 <div className="feedback-buttons">
                   <button
                     type="button"
@@ -946,9 +1168,29 @@ function App() {
                         : "chat-bubble assistant"
                     }
                   >
-                    {msg.content}
+                    {msg.role === "assistant" ? (
+                      <div
+                        className="rendered-markdown"
+                        dangerouslySetInnerHTML={{
+                          __html: renderMarkdown(msg.content),
+                        }}
+                      />
+                    ) : (
+                      msg.content
+                    )}
                   </div>
                 ))}
+                {streamingContent && (
+                  <div className="chat-bubble assistant streaming">
+                    <div
+                      className="rendered-markdown"
+                      dangerouslySetInnerHTML={{
+                        __html: renderMarkdown(streamingContent),
+                      }}
+                    />
+                    <span className="typing-cursor">▊</span>
+                  </div>
+                )}
                 <div ref={chatEndRef} />
               </div>
             )}
@@ -981,9 +1223,24 @@ function App() {
                 {feedbackLog.length === 1 ? "entry" : "entries"} logged
               </p>
             )}
-            <button type="button" className="cache-clear" onClick={clearCache}>
-              <RefreshCw size={14} /> Clear response cache
-            </button>
+            <div className="coach-actions-row">
+              <button
+                type="button"
+                className="cache-clear"
+                onClick={clearCache}
+              >
+                <RefreshCw size={14} /> Clear cache
+              </button>
+              {conversation.length > 2 && (
+                <button
+                  type="button"
+                  className="cache-clear"
+                  onClick={exportConversation}
+                >
+                  <Download size={14} /> Export chat
+                </button>
+              )}
+            </div>
           </section>
         </aside>
       </section>
