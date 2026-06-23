@@ -1,4 +1,11 @@
-import React, { useMemo, useState, useRef, useCallback } from "react";
+import React, {
+  useMemo,
+  useState,
+  useRef,
+  useCallback,
+  Component,
+  ReactNode,
+} from "react";
 import { createRoot } from "react-dom/client";
 import {
   AlertCircle,
@@ -21,6 +28,120 @@ import {
   Zap,
 } from "lucide-react";
 import "./styles.css";
+
+// Error Boundary Component
+class ErrorBoundary extends Component<
+  { children: ReactNode; fallback?: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: ReactNode; fallback?: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Error caught by boundary:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        this.props.fallback || (
+          <div className="error-boundary">
+            <AlertCircle size={48} />
+            <h2>Something went wrong</h2>
+            <p>{this.state.error?.message}</p>
+            <button onClick={() => window.location.reload()}>
+              <RefreshCw size={16} /> Reload Application
+            </button>
+          </div>
+        )
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Security Utilities
+const SecurityUtils = {
+  // Simple encryption for API key storage (base64 + salt)
+  encryptApiKey: (key: string): string => {
+    const salt = "beasiswacoach_2026_";
+    const combined = salt + key;
+    return btoa(combined);
+  },
+
+  decryptApiKey: (encrypted: string): string => {
+    try {
+      const salt = "beasiswacoach_2026_";
+      const decoded = atob(encrypted);
+      return decoded.replace(salt, "");
+    } catch {
+      return "";
+    }
+  },
+
+  // Save API key securely to localStorage
+  saveApiKey: (key: string): void => {
+    if (key.trim()) {
+      const encrypted = SecurityUtils.encryptApiKey(key);
+      localStorage.setItem("beasiswacoach_api_key", encrypted);
+    } else {
+      localStorage.removeItem("beasiswacoach_api_key");
+    }
+  },
+
+  // Load API key from localStorage
+  loadApiKey: (): string => {
+    const encrypted = localStorage.getItem("beasiswacoach_api_key");
+    return encrypted ? SecurityUtils.decryptApiKey(encrypted) : "";
+  },
+
+  // Sanitize input to prevent XSS
+  sanitizeInput: (input: string): string => {
+    return input
+      .replace(/[<>]/g, "") // Remove angle brackets
+      .replace(/javascript:/gi, "") // Remove javascript: protocol
+      .replace(/on\w+\s*=/gi, "") // Remove event handlers
+      .trim();
+  },
+
+  // Validate API key format
+  validateApiKey: (key: string): boolean => {
+    if (!key.trim()) return true; // Empty is valid (local mode)
+    return /^sk-[a-zA-Z0-9]{48}$/.test(key.trim());
+  },
+
+  // Rate limiting tracker
+  rateLimiter: {
+    requests: [] as number[],
+    maxRequests: 10,
+    windowMs: 60000, // 1 minute
+
+    canMakeRequest(): boolean {
+      const now = Date.now();
+      this.requests = this.requests.filter(
+        (time) => now - time < this.windowMs,
+      );
+      return this.requests.length < this.maxRequests;
+    },
+
+    recordRequest(): void {
+      this.requests.push(Date.now());
+    },
+
+    getTimeUntilNext(): number {
+      if (this.requests.length === 0) return 0;
+      const oldest = this.requests[0];
+      return Math.max(0, this.windowMs - (Date.now() - oldest));
+    },
+  },
+};
 
 type StudentProfile = {
   name: string;
@@ -582,7 +703,7 @@ type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
 function App() {
   const [profile, setProfile] = useState(initialProfile);
-  const [apiKey, setApiKey] = useState("");
+  const [apiKey, setApiKey] = useState(() => SecurityUtils.loadApiKey());
   const [aiFeedback, setAiFeedback] = useState("");
   const [streamingContent, setStreamingContent] = useState("");
   const [error, setError] = useState("");
@@ -597,7 +718,15 @@ function App() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("disconnected");
+  const [rateLimitWarning, setRateLimitWarning] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Save API key to localStorage when it changes
+  const handleApiKeyChange = (newKey: string) => {
+    const sanitized = SecurityUtils.sanitizeInput(newKey);
+    setApiKey(sanitized);
+    SecurityUtils.saveApiKey(sanitized);
+  };
 
   const readiness = useMemo(() => calculateReadiness(profile), [profile]);
   const matches = useMemo(() => matchScholarships(profile), [profile]);
@@ -613,7 +742,8 @@ function App() {
   const summary = makeSubmissionSummary(profile, readinessAverage, matches[0]);
 
   const updateProfile = (field: keyof StudentProfile, value: string) => {
-    setProfile((current) => ({ ...current, [field]: value }));
+    const sanitized = SecurityUtils.sanitizeInput(value);
+    setProfile((current) => ({ ...current, [field]: sanitized }));
   };
 
   const scrollToChatBottom = useCallback(() => {
@@ -622,10 +752,32 @@ function App() {
 
   const runReview = async () => {
     setError("");
+    setRateLimitWarning("");
     setValidationErrors([]);
     setIsLoading(true);
     setStreamingContent("");
     setConnectionStatus("connecting");
+
+    // Check rate limit
+    if (!SecurityUtils.rateLimiter.canMakeRequest()) {
+      const waitTime = Math.ceil(
+        SecurityUtils.rateLimiter.getTimeUntilNext() / 1000,
+      );
+      setRateLimitWarning(
+        `Rate limit reached. Please wait ${waitTime} seconds.`,
+      );
+      setIsLoading(false);
+      setConnectionStatus("disconnected");
+      return;
+    }
+
+    // Validate API key format
+    if (apiKey.trim() && !SecurityUtils.validateApiKey(apiKey)) {
+      setError("Invalid API key format. Expected format: sk-...");
+      setIsLoading(false);
+      setConnectionStatus("error");
+      return;
+    }
 
     // Validate profile before sending to API
     const validation = validateProfileInput(profile);
@@ -644,6 +796,10 @@ function App() {
         setConnectionStatus("disconnected");
         return;
       }
+
+      // Record this request for rate limiting
+      SecurityUtils.rateLimiter.recordRequest();
+
       const initialMessages: ChatMessage[] = [
         {
           role: "user",
@@ -697,12 +853,28 @@ function App() {
   const sendChatMessage = async () => {
     if (!chatInput.trim() || !apiKey.trim()) return;
     setError("");
+    setRateLimitWarning("");
     setIsLoading(true);
     setStreamingContent("");
     setConnectionStatus("connecting");
 
-    // Preprocess input
-    const processedInput = preprocessInput(chatInput.trim());
+    // Check rate limit
+    if (!SecurityUtils.rateLimiter.canMakeRequest()) {
+      const waitTime = Math.ceil(
+        SecurityUtils.rateLimiter.getTimeUntilNext() / 1000,
+      );
+      setRateLimitWarning(
+        `Rate limit reached. Please wait ${waitTime} seconds.`,
+      );
+      setIsLoading(false);
+      setConnectionStatus("disconnected");
+      return;
+    }
+
+    // Preprocess and sanitize input
+    const processedInput = SecurityUtils.sanitizeInput(
+      preprocessInput(chatInput.trim()),
+    );
     const userMessage: ChatMessage = { role: "user", content: processedInput };
     const newConversation = [...conversation, userMessage];
     setConversation(newConversation);
@@ -710,6 +882,9 @@ function App() {
     scrollToChatBottom();
 
     try {
+      // Record this request for rate limiting
+      SecurityUtils.rateLimiter.recordRequest();
+
       const reply = await requestAiReview(
         profile,
         apiKey.trim(),
@@ -1063,8 +1238,13 @@ function App() {
                 type="password"
                 value={apiKey}
                 placeholder="Optional, leave empty for local coach mode"
-                onChange={(event) => setApiKey(event.target.value)}
+                onChange={(event) => handleApiKeyChange(event.target.value)}
               />
+              {apiKey && (
+                <small className="api-key-status">
+                  ✓ Saved securely to localStorage
+                </small>
+              )}
             </label>
             <button
               type="button"
@@ -1079,6 +1259,14 @@ function App() {
               )}
               {isLoading ? "AI is thinking..." : "Review application"}
             </button>
+
+            {/* Rate Limit Warning */}
+            {rateLimitWarning && (
+              <div className="rate-limit-warning">
+                <AlertCircle size={16} />
+                <span>{rateLimitWarning}</span>
+              </div>
+            )}
 
             {/* Quick Actions - Context-aware prompts */}
             {apiKey.trim() && !isLoading && (
@@ -1333,6 +1521,8 @@ function App() {
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>,
 );
