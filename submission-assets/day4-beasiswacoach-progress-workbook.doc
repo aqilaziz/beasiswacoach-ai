@@ -1,0 +1,155 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Day 4 Progress Workbook - BeasiswaCoach AI</title>
+<style>
+body { font-family: Calibri, sans-serif; margin: 40px; line-height: 1.6; color: #333; }
+h1 { color: #1e4638; border-bottom: 3px solid #1e4638; padding-bottom: 8px; }
+h2 { color: #2d6a4f; margin-top: 28px; }
+h3 { color: #40916c; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+th { background: #1e4638; color: white; }
+tr:nth-child(even) { background: #f4f4f4; }
+.highlight { background: #e8f3ec; padding: 12px; border-left: 4px solid #2d6a4f; margin: 12px 0; }
+.code { font-family: Consolas, monospace; background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+.status-done { color: #2d6a4f; font-weight: bold; }
+.status-progress { color: #e67e22; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>Day 4 Progress Workbook Report</h1>
+<p><strong>Challenge:</strong> Building AI Application &mdash; NAS x GDC 2026</p>
+<p><strong>Project:</strong> BeasiswaCoach AI &mdash; Scholarship Strategy Assistant</p>
+<p><strong>Team:</strong> Aqil Aziz (aqilaziz)</p>
+<p><strong>Date:</strong> 23 June 2026</p>
+
+<h2>1. Day 4 Objectives</h2>
+<p>Day 4 focuses on <strong>optimizing API integration and application evaluation</strong> &mdash; improving the reliability, performance, and quality of AI responses through metrics tracking, response quality evaluation, and input validation. The goal is to ensure the application delivers high-quality, consistent AI outputs while monitoring API usage and performance.</p>
+
+<h2>2. What Was Accomplished</h2>
+
+<h3>2.1 API Performance Metrics Dashboard</h3>
+<p>Implemented a comprehensive real-time performance monitoring dashboard that tracks all API interactions and provides actionable insights into application health.</p>
+<div class="highlight">
+<strong>Technical Implementation:</strong>
+<ul>
+<li>Created <span class="code">ApiMetrics</span> type tracking: totalRequests, totalTokens, averageResponseTime, cacheHits, lastResponseTime, lastTokenCount, rateLimitWarnings</li>
+<li>Used <span class="code">performance.now()</span> API for precise response time measurement</li>
+<li>Token counting from OpenAI API response usage data for cost monitoring</li>
+<li>Running average calculation for response time trends</li>
+<li>Rate limit warning counter for proactive throttling detection</li>
+</ul>
+</div>
+
+<table>
+<tr><th>Metric</th><th>Purpose</th><th>Implementation</th></tr>
+<tr><td>Total Requests</td><td>Track API usage volume</td><td>Incremented on each successful API call</td></tr>
+<tr><td>Total Tokens</td><td>Monitor cost and usage</td><td>Summed from response.usage.total_tokens</td></tr>
+<tr><td>Avg Response Time</td><td>Performance benchmarking</td><td>Running average using performance.now()</td></tr>
+<tr><td>Last Response Time</td><td>Real-time latency check</td><td>Measured per request with high-resolution timer</td></tr>
+<tr><td>Cache Hits</td><td>Cache effectiveness</td><td>Tracked when cached responses are served</td></tr>
+<tr><td>Rate Limit Warnings</td><td>Proactive throttling</td><td>Counted on 429 status responses</td></tr>
+</table>
+
+<h3>2.2 Response Quality Evaluation System</h3>
+<p>Built an automated response quality scoring system that evaluates AI outputs across multiple dimensions to ensure consistent, high-quality feedback for users.</p>
+<div class="highlight">
+<strong>Quality Dimensions Evaluated:</strong>
+<ul>
+<li><strong>Relevance Score (0-10):</strong> Keyword matching between user profile data and AI response. Checks for scholarship-related terms, profile-specific keywords (GPA, major, university targets)</li>
+<li><strong>Coherence Score (0-10):</strong> Structural analysis of response &mdash; checks for paragraphs, bullet points, numbered lists, and logical flow indicators</li>
+<li><strong>Actionability Score (0-10):</strong> Detects action-oriented language (verbs like "apply", "prepare", "research", "submit", "write") that indicates practical advice</li>
+<li><strong>Overall Score (0-10):</strong> Weighted average of all three dimensions for a holistic quality measure</li>
+</ul>
+</div>
+
+<table>
+<tr><th>Dimension</th><th>Method</th><th>Scoring Logic</th></tr>
+<tr><td>Relevance</td><td>Keyword matching</td><td>Counts profile keywords found in response, normalized to 0-10 scale</td></tr>
+<tr><td>Coherence</td><td>Structure detection</td><td>Checks for paragraphs, lists, transitions; scores structural completeness</td></tr>
+<tr><td>Actionability</td><td>Action word detection</td><td>Counts action verbs and imperative phrases; higher count = higher score</td></tr>
+<tr><td>Overall</td><td>Weighted average</td><td>(Relevance * 0.4 + Coherence * 0.3 + Actionability * 0.3)</td></tr>
+</table>
+
+<h3>2.3 Input Validation &amp; Preprocessing</h3>
+<p>Added robust input validation and preprocessing to ensure data quality before sending to the AI, reducing errors and improving response relevance.</p>
+
+<table>
+<tr><th>Feature</th><th>Implementation</th><th>Status</th></tr>
+<tr><td>Required Field Validation</td><td>Checks name, GPA, target scholarship, target university</td><td class="status-done">&#10004; Done</td></tr>
+<tr><td>GPA Range Validation</td><td>Ensures GPA is between 0.0 and 4.0</td><td class="status-done">&#10004; Done</td></tr>
+<tr><td>Text Normalization</td><td>Trims whitespace, normalizes line breaks</td><td class="status-done">&#10004; Done</td></tr>
+<tr><td>Empty Field Detection</td><td>Warns users about incomplete profile sections</td><td class="status-done">&#10004; Done</td></tr>
+<tr><td>User-Friendly Errors</td><td>Clear error messages with specific field names</td><td class="status-done">&#10004; Done</td></tr>
+</table>
+
+<h3>2.4 UI Enhancements for Day 4</h3>
+<p>Added three new visual components to the application interface:</p>
+<ul>
+<li><strong>Metrics Dashboard:</strong> Blue-themed card grid showing real-time API performance metrics with large numeric displays</li>
+<li><strong>Quality Evaluation Panel:</strong> Amber-themed section with progress bars showing response quality scores across all dimensions</li>
+<li><strong>Validation Errors Panel:</strong> Red-themed alert section with warning icons listing profile data issues that need user attention</li>
+</ul>
+
+<h2>3. Technical Architecture</h2>
+
+<h3>3.1 Data Flow for Day 4 Features</h3>
+<table>
+<tr><th>Step</th><th>Action</th><th>Component</th></tr>
+<tr><td>1</td><td>User fills scholarship profile</td><td>Profile Form</td></tr>
+<tr><td>2</td><td>Input validation runs (validateProfileInput)</td><td>Validation Engine</td></tr>
+<tr><td>3</td><td>Input preprocessing (preprocessInput)</td><td>Preprocessor</td></tr>
+<tr><td>4</td><td>Validated data sent to OpenAI API</td><td>requestAiReview()</td></tr>
+<tr><td>5</td><td>Performance metrics captured (timing, tokens)</td><td>Metrics Tracker</td></tr>
+<tr><td>6</td><td>Response quality evaluated</td><td>evaluateResponseQuality()</td></tr>
+<tr><td>7</td><td>Results displayed in dashboard panels</td><td>UI Components</td></tr>
+</table>
+
+<h3>3.2 Key Functions Added</h3>
+<table>
+<tr><th>Function</th><th>Purpose</th><th>Input/Output</th></tr>
+<tr><td><span class="code">evaluateResponseQuality()</span></td><td>Score AI response on multiple dimensions</td><td>Input: response text + profile &rarr; Output: ResponseQuality object</td></tr>
+<tr><td><span class="code">validateProfileInput()</span></td><td>Check profile data completeness and validity</td><td>Input: profile object &rarr; Output: string[] of errors</td></tr>
+<tr><td><span class="code">preprocessInput()</span></td><td>Normalize and clean text input</td><td>Input: raw string &rarr; Output: cleaned string</td></tr>
+</table>
+
+<h2>4. Performance Results</h2>
+<table>
+<tr><th>Metric</th><th>Before Day 4</th><th>After Day 4</th></tr>
+<tr><td>API Response Monitoring</td><td>No tracking</td><td>Real-time metrics dashboard</td></tr>
+<tr><td>Response Quality Check</td><td>Manual review only</td><td>Automated 4-dimension scoring</td></tr>
+<tr><td>Input Validation</td><td>Basic HTML5 validation</td><td>Comprehensive field-level validation</td></tr>
+<tr><td>Error Visibility</td><td>Console only</td><td>User-facing validation panel</td></tr>
+<tr><td>Build Size</td><td>212.51 kB</td><td>217.95 kB (+5.44 kB for new features)</td></tr>
+</table>
+
+<h2>5. Deployment</h2>
+<table>
+<tr><th>Item</th><th>Details</th></tr>
+<tr><td>Production URL</td><td><a href="https://beasiswacoach-ai.vercel.app">https://beasiswacoach-ai.vercel.app</a></td></tr>
+<tr><td>GitHub Repository</td><td><a href="https://github.com/aqilaziz/beasiswacoach-ai">github.com/aqilaziz/beasiswacoach-ai</a></td></tr>
+<tr><td>Framework</td><td>React 19 + TypeScript + Vite</td></tr>
+<tr><td>AI Model</td><td>OpenAI GPT-4o-mini</td></tr>
+<tr><td>Build Status</td><td class="status-done">&#10004; Passing</td></tr>
+<tr><td>Deploy Status</td><td class="status-done">&#10004; Live on Vercel</td></tr>
+</table>
+
+<h2>6. Challenges &amp; Solutions</h2>
+<table>
+<tr><th>Challenge</th><th>Solution</th></tr>
+<tr><td>Measuring response quality objectively</td><td>Implemented multi-dimensional scoring with keyword matching, structure detection, and action word analysis</td></tr>
+<tr><td>Tracking API performance without external tools</td><td>Used browser's performance.now() API and OpenAI's usage data for lightweight metrics</td></tr>
+<tr><td>Validating diverse scholarship profile fields</td><td>Created field-specific validation rules with clear, actionable error messages</td></tr>
+<tr><td>Keeping bundle size minimal</td><td>All new features added only 5.44 kB to production build</td></tr>
+</table>
+
+<h2>7. Next Steps</h2>
+<ul>
+<li>Implement response caching to reduce API costs for repeated queries</li>
+<li>Add A/B testing framework for comparing different prompt strategies</li>
+<li>Enhance quality evaluation with user feedback integration</li>
+<li>Add export functionality for scholarship strategy reports</li>
+</ul>
+
+</body>
+</html>

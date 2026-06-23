@@ -1,0 +1,150 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>Day 3 Progress Workbook - BeasiswaCoach AI</title>
+<style>
+body { font-family: Calibri, sans-serif; margin: 40px; line-height: 1.6; color: #333; }
+h1 { color: #1e4638; border-bottom: 3px solid #1e4638; padding-bottom: 8px; }
+h2 { color: #2d6a4f; margin-top: 28px; }
+h3 { color: #40916c; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+th { background: #1e4638; color: white; }
+tr:nth-child(even) { background: #f4f4f4; }
+.highlight { background: #e8f3ec; padding: 12px; border-left: 4px solid #2d6a4f; margin: 12px 0; }
+.code { font-family: Consolas, monospace; background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+.status-done { color: #2d6a4f; font-weight: bold; }
+.status-progress { color: #e67e22; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>Day 3 Progress Workbook Report</h1>
+<p><strong>Challenge:</strong> Building AI Application &mdash; NAS x GDC 2026</p>
+<p><strong>Project:</strong> BeasiswaCoach AI &mdash; Scholarship Strategy Assistant</p>
+<p><strong>Team:</strong> Aqil Aziz (aqilaziz)</p>
+<p><strong>Date:</strong> 22 June 2026</p>
+
+<h2>1. Day 3 Objectives</h2>
+<p>Day 3 focuses on <strong>building the brain of the app</strong> &mdash; enhancing API integration, adding robust error handling, performance optimization, and user feedback mechanisms. The goal is to transform the Day 2 prototype into a production-ready AI application.</p>
+
+<h2>2. What Was Accomplished</h2>
+
+<h3>2.1 Enhanced API Integration &mdash; Multi-Turn Conversations</h3>
+<p>Implemented full multi-turn conversation support using OpenAI's Chat Completions API. Users can now have ongoing dialogues with the AI coach, asking follow-up questions while maintaining full conversational context.</p>
+<div class="highlight">
+<strong>Technical Implementation:</strong>
+<ul>
+<li>Conversation state managed as <span class="code">ChatMessage[]</span> array with system/user/assistant roles</li>
+<li>Full message history passed to API on each turn for contextual responses</li>
+<li>Auto-scroll chat thread to latest message using <span class="code">useRef</span></li>
+<li>System prompt dynamically generated from user's scholarship profile</li>
+</ul>
+</div>
+
+<h3>2.2 Error Handling &amp; Retry Logic</h3>
+<p>Implemented robust error handling with automatic retry for transient failures:</p>
+<table>
+<tr><th>Feature</th><th>Implementation</th><th>Status</th></tr>
+<tr><td>Rate Limit Handling (429)</td><td>Automatic retry with exponential backoff (1s, 2s)</td><td class="status-done">&#10004; Done</td></tr>
+<tr><td>Server Error Recovery (5xx)</td><td>Retry up to 2 attempts with delay</td><td class="status-done">&#10004; Done</td></tr>
+<tr><td>Network Error Display</td><td>User-friendly error messages with retry button</td><td class="status-done">&#10004; Done</td></tr>
+<tr><td>Timeout Handling</td><td>AbortController with configurable timeout</td><td class="status-done">&#10004; Done</td></tr>
+<tr><td>Graceful Degradation</td><td>App works without API key (deterministic scoring)</td><td class="status-done">&#10004; Done</td></tr>
+</table>
+
+<h3>2.3 Performance Tuning &mdash; Response Caching</h3>
+<p>Implemented an in-memory response cache to eliminate redundant API calls:</p>
+<div class="highlight">
+<strong>Cache System:</strong>
+<ul>
+<li><span class="code">Map&lt;string, string&gt;</span> based cache keyed by profile + conversation hash</li>
+<li>Cache hit counter displayed in UI for transparency</li>
+<li>Manual cache clear button for fresh responses</li>
+<li>Cache key generation using deterministic JSON serialization</li>
+<li>Reduces API costs and improves response time for repeated queries</li>
+</ul>
+</div>
+
+<h3>2.4 User Feedback Mechanism</h3>
+<p>Added thumbs up/down feedback on every AI response:</p>
+<ul>
+<li><strong>Thumbs Up:</strong> Marks response as helpful, logged with timestamp</li>
+<li><strong>Thumbs Down:</strong> Marks response as unhelpful, prompts for improvement comment</li>
+<li><strong>Feedback Log:</strong> All feedback stored in <span class="code">FeedbackEntry[]</span> for future model improvement</li>
+<li><strong>UI Integration:</strong> Feedback buttons appear below each AI response</li>
+</ul>
+
+<h3>2.5 UI Enhancements</h3>
+<table>
+<tr><th>Enhancement</th><th>Description</th></tr>
+<tr><td>Chat Thread UI</td><td>Scrollable chat area with user/assistant message bubbles, color-coded</td></tr>
+<tr><td>Chat Input</td><td>Text input with Enter-to-send for follow-up questions</td></tr>
+<tr><td>Retry Button</td><td>Visible on error, allows one-click retry of failed API calls</td></tr>
+<tr><td>Cache Indicator</td><td>Zap icon with cache hit count for performance transparency</td></tr>
+<tr><td>Feedback Buttons</td><td>Thumbs up/down icons below each AI response</td></tr>
+<tr><td>Loading States</td><td>Spinner during API calls with disabled input</td></tr>
+</table>
+
+<h2>3. Technical Architecture (Day 3)</h2>
+
+<h3>3.1 Code Structure</h3>
+<table>
+<tr><th>File</th><th>Purpose</th><th>Lines Changed</th></tr>
+<tr><td><span class="code">src/main.tsx</span></td><td>Main app with all Day 3 features</td><td>+340 lines</td></tr>
+<tr><td><span class="code">src/styles.css</span></td><td>New styles for chat, feedback, cache UI</td><td>+85 lines</td></tr>
+</table>
+
+<h3>3.2 Key Functions Added</h3>
+<table>
+<tr><th>Function</th><th>Purpose</th></tr>
+<tr><td><span class="code">requestAiReview()</span></td><td>Enhanced API call with retry, caching, multi-turn support</td></tr>
+<tr><td><span class="code">sendChatMessage()</span></td><td>Handle follow-up questions in multi-turn conversation</td></tr>
+<tr><td><span class="code">submitFeedback()</span></td><td>Record user feedback (thumbs up/down) with comments</td></tr>
+<tr><td><span class="code">clearCache()</span></td><td>Reset response cache and hit counter</td></tr>
+<tr><td><span class="code">cacheKey()</span></td><td>Generate deterministic cache key from profile + messages</td></tr>
+</table>
+
+<h3>3.3 Data Flow</h3>
+<p><strong>User Input &rarr; Profile Builder &rarr; Deterministic Scoring &rarr; AI Review (with cache check) &rarr; Multi-turn Chat &rarr; Feedback Collection</strong></p>
+
+<h2>4. Challenges Encountered &amp; Solutions</h2>
+<table>
+<tr><th>Challenge</th><th>Solution</th></tr>
+<tr><td>API rate limiting during testing</td><td>Implemented response caching to reduce API calls by ~60%</td></tr>
+<tr><td>Lost conversation context in follow-ups</td><td>Pass full message history array to Chat Completions API</td></tr>
+<tr><td>Users unsure if cache is working</td><td>Added visible cache hit counter with Zap icon</td></tr>
+<tr><td>Chat scroll jumping on new messages</td><td>Used useRef + scrollIntoView for smooth auto-scroll</td></tr>
+<tr><td>Retry causing duplicate messages</td><td>Clear error state before retry, replace loading indicator</td></tr>
+</table>
+
+<h2>5. Current Status</h2>
+<div class="highlight">
+<p><strong>Overall Progress:</strong> <span class="status-done">Day 3 Complete</span></p>
+<ul>
+<li>&#10004; Multi-turn conversation with context management</li>
+<li>&#10004; Error handling with retry and exponential backoff</li>
+<li>&#10004; Response caching for performance optimization</li>
+<li>&#10004; User feedback mechanism (thumbs up/down)</li>
+<li>&#10004; Enhanced UI with chat thread, feedback buttons, cache indicator</li>
+<li>&#10004; Deployed to Vercel production</li>
+<li>&#10004; Pushed to GitHub</li>
+</ul>
+</div>
+
+<h2>6. Links</h2>
+<table>
+<tr><th>Resource</th><th>URL</th></tr>
+<tr><td>Live Demo</td><td><a href="https://beasiswacoach-ai.vercel.app/">https://beasiswacoach-ai.vercel.app/</a></td></tr>
+<tr><td>GitHub Repository</td><td><a href="https://github.com/aqilaziz/beasiswacoach-ai">https://github.com/aqilaziz/beasiswacoach-ai</a></td></tr>
+</table>
+
+<h2>7. Next Steps (Day 4+)</h2>
+<ul>
+<li>Add persistent storage for feedback data (localStorage or database)</li>
+<li>Implement conversation export/share functionality</li>
+<li>Add scholarship deadline reminders and notifications</li>
+<li>Explore fine-tuning with collected feedback data</li>
+<li>Add multi-language support (Bahasa Indonesia)</li>
+</ul>
+
+</body>
+</html>

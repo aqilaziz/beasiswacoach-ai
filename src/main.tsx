@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useCallback } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  AlertCircle,
   ArrowRight,
   Award,
   BookOpenCheck,
@@ -268,11 +269,130 @@ type FeedbackEntry = {
   timestamp: string;
 };
 
+type ApiMetrics = {
+  totalRequests: number;
+  totalTokens: number;
+  averageResponseTime: number;
+  cacheHits: number;
+  lastResponseTime: number;
+  lastTokenCount: number;
+  rateLimitWarnings: number;
+};
+
+type ResponseQuality = {
+  relevance: number;
+  coherence: number;
+  actionability: number;
+  overall: number;
+};
+
 // Response cache to reduce redundant API calls (performance tuning)
 const responseCache = new Map<string, string>();
+const metricsHistory: ApiMetrics = {
+  totalRequests: 0,
+  totalTokens: 0,
+  averageResponseTime: 0,
+  cacheHits: 0,
+  lastResponseTime: 0,
+  lastTokenCount: 0,
+  rateLimitWarnings: 0,
+};
 
 function cacheKey(profile: StudentProfile, messages: ChatMessage[]) {
   return JSON.stringify({ profile, messages });
+}
+
+function evaluateResponseQuality(
+  response: string,
+  profile: StudentProfile,
+): ResponseQuality {
+  const responseLower = response.toLowerCase();
+  const profileText = Object.values(profile).join(" ").toLowerCase();
+
+  // Relevance: check if response mentions profile-specific terms
+  const profileKeywords = profileText
+    .split(/\s+/)
+    .filter((word) => word.length > 4);
+  const mentionedKeywords = profileKeywords.filter((keyword) =>
+    responseLower.includes(keyword),
+  );
+  const relevance = Math.min(
+    100,
+    Math.round(
+      (mentionedKeywords.length / Math.max(profileKeywords.length, 1)) * 100,
+    ),
+  );
+
+  // Coherence: check for structured content (bullet points, numbered lists, sections)
+  const hasStructure = /(\d+\.|[-•]|\*\*|##)/.test(response);
+  const hasParagraphs = response.split("\n\n").length > 2;
+  const coherence = hasStructure ? 85 : hasParagraphs ? 70 : 50;
+
+  // Actionability: check for actionable language
+  const actionWords = [
+    "should",
+    "must",
+    "need to",
+    "consider",
+    "try",
+    "implement",
+    "create",
+    "build",
+    "prepare",
+    "submit",
+  ];
+  const actionCount = actionWords.filter((word) =>
+    responseLower.includes(word),
+  ).length;
+  const actionability = Math.min(
+    100,
+    Math.round((actionCount / actionWords.length) * 100),
+  );
+
+  const overall = Math.round((relevance + coherence + actionability) / 3);
+
+  return { relevance, coherence, actionability, overall };
+}
+
+function validateProfileInput(profile: StudentProfile): {
+  isValid: boolean;
+  errors: string[];
+} {
+  const errors: string[] = [];
+
+  if (!profile.name.trim()) {
+    errors.push("Name is required");
+  }
+
+  if (!profile.educationLevel.trim()) {
+    errors.push("Education level is required");
+  }
+
+  if (!profile.field.trim()) {
+    errors.push("Target field is required");
+  }
+
+  if (profile.gpa.trim() && !/\d/.test(profile.gpa)) {
+    errors.push("GPA should contain numbers");
+  }
+
+  if (profile.achievements.length < 20) {
+    errors.push("Achievements section is too short (minimum 20 characters)");
+  }
+
+  if (profile.goal.length < 20) {
+    errors.push("Goal section is too short (minimum 20 characters)");
+  }
+
+  return { isValid: errors.length === 0, errors };
+}
+
+function preprocessInput(text: string): string {
+  // Remove extra whitespace and normalize
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/[^\w\s.,!?-]/g, "")
+    .trim();
 }
 
 async function requestAiReview(
@@ -284,14 +404,17 @@ async function requestAiReview(
   const key = cacheKey(profile, conversation);
   const cached = responseCache.get(key);
   if (cached) {
+    metricsHistory.cacheHits++;
     return cached;
   }
 
   const systemMessage: ChatMessage = {
     role: "system",
     content:
-      "You are a scholarship admissions coach for Indonesian students. Give practical, honest, specific advice. Avoid inventing real scholarship deadlines. Reference previous messages for context.",
+      "You are a scholarship admissions coach for Indonesian students. Give practical, honest, specific advice. Avoid inventing real scholarship deadlines. Reference previous messages for context. Structure responses with clear sections and actionable steps.",
   };
+
+  const startTime = performance.now();
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -307,10 +430,18 @@ async function requestAiReview(
     }),
   });
 
+  const endTime = performance.now();
+  const responseTime = Math.round(endTime - startTime);
+
   // Error handling: retry on rate-limit (429) or server error (5xx)
   if (!response.ok) {
+    if (response.status === 429) {
+      metricsHistory.rateLimitWarnings++;
+    }
     if ((response.status === 429 || response.status >= 500) && retryCount < 2) {
-      await new Promise((resolve) => setTimeout(resolve, 1000 * (retryCount + 1)));
+      await new Promise((resolve) =>
+        setTimeout(resolve, 1000 * (retryCount + 1)),
+      );
       return requestAiReview(profile, apiKey, conversation, retryCount + 1);
     }
     throw new Error(
@@ -319,7 +450,24 @@ async function requestAiReview(
   }
 
   const data = await response.json();
-  const content = data.choices?.[0]?.message?.content ?? "No AI review returned.";
+  const content =
+    data.choices?.[0]?.message?.content ?? "No AI review returned.";
+  const tokenCount = data.usage?.total_tokens ?? 0;
+
+  // Update metrics
+  metricsHistory.totalRequests++;
+  metricsHistory.totalTokens += tokenCount;
+  metricsHistory.lastResponseTime = responseTime;
+  metricsHistory.lastTokenCount = tokenCount;
+  metricsHistory.averageResponseTime = Math.round(
+    metricsHistory.totalRequests === 1
+      ? responseTime
+      : (metricsHistory.averageResponseTime *
+          (metricsHistory.totalRequests - 1) +
+          responseTime) /
+          metricsHistory.totalRequests,
+  );
+
   responseCache.set(key, content);
   return content;
 }
@@ -364,6 +512,10 @@ function App() {
   const [conversation, setConversation] = useState<ChatMessage[]>([]);
   const [feedbackLog, setFeedbackLog] = useState<FeedbackEntry[]>([]);
   const [cacheHits, setCacheHits] = useState(0);
+  const [metrics, setMetrics] = useState<ApiMetrics>(metricsHistory);
+  const [responseQuality, setResponseQuality] =
+    useState<ResponseQuality | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const readiness = useMemo(() => calculateReadiness(profile), [profile]);
@@ -389,7 +541,17 @@ function App() {
 
   const runReview = async () => {
     setError("");
+    setValidationErrors([]);
     setIsLoading(true);
+
+    // Validate profile before sending to API
+    const validation = validateProfileInput(profile);
+    if (!validation.isValid) {
+      setValidationErrors(validation.errors);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       if (!apiKey.trim()) {
         setAiFeedback(
@@ -404,9 +566,25 @@ function App() {
         },
       ];
       setConversation(initialMessages);
-      const feedback = await requestAiReview(profile, apiKey.trim(), initialMessages);
-      setConversation((prev) => [...prev, { role: "assistant", content: feedback }]);
+      const feedback = await requestAiReview(
+        profile,
+        apiKey.trim(),
+        initialMessages,
+      );
+      setConversation((prev) => [
+        ...prev,
+        { role: "assistant", content: feedback },
+      ]);
       setAiFeedback(feedback);
+
+      // Evaluate response quality
+      const quality = evaluateResponseQuality(feedback, profile);
+      setResponseQuality(quality);
+
+      // Update metrics display
+      setMetrics({ ...metricsHistory });
+      setCacheHits(metricsHistory.cacheHits);
+
       scrollToChatBottom();
     } catch (caughtError) {
       setError(
@@ -423,15 +601,35 @@ function App() {
     if (!chatInput.trim() || !apiKey.trim()) return;
     setError("");
     setIsLoading(true);
-    const userMessage: ChatMessage = { role: "user", content: chatInput.trim() };
+
+    // Preprocess input
+    const processedInput = preprocessInput(chatInput.trim());
+    const userMessage: ChatMessage = { role: "user", content: processedInput };
     const newConversation = [...conversation, userMessage];
     setConversation(newConversation);
     setChatInput("");
     scrollToChatBottom();
+
     try {
-      const reply = await requestAiReview(profile, apiKey.trim(), newConversation);
-      setConversation((prev) => [...prev, { role: "assistant", content: reply }]);
+      const reply = await requestAiReview(
+        profile,
+        apiKey.trim(),
+        newConversation,
+      );
+      setConversation((prev) => [
+        ...prev,
+        { role: "assistant", content: reply },
+      ]);
       setAiFeedback(reply);
+
+      // Evaluate response quality
+      const quality = evaluateResponseQuality(reply, profile);
+      setResponseQuality(quality);
+
+      // Update metrics display
+      setMetrics({ ...metricsHistory });
+      setCacheHits(metricsHistory.cacheHits);
+
       scrollToChatBottom();
     } catch (caughtError) {
       setError(
@@ -461,6 +659,121 @@ function App() {
 
   return (
     <main className="app-shell">
+      {/* API Metrics Dashboard */}
+      {metrics.totalRequests > 0 && (
+        <section className="metrics-dashboard">
+          <div className="section-heading compact">
+            <Zap size={20} />
+            <h2>API Performance Metrics</h2>
+          </div>
+          <div className="metrics-grid">
+            <div className="metric-card">
+              <span className="metric-label">Total Requests</span>
+              <span className="metric-value">{metrics.totalRequests}</span>
+            </div>
+            <div className="metric-card">
+              <span className="metric-label">Total Tokens</span>
+              <span className="metric-value">
+                {metrics.totalTokens.toLocaleString()}
+              </span>
+            </div>
+            <div className="metric-card">
+              <span className="metric-label">Avg Response Time</span>
+              <span className="metric-value">
+                {metrics.averageResponseTime}ms
+              </span>
+            </div>
+            <div className="metric-card">
+              <span className="metric-label">Last Response</span>
+              <span className="metric-value">{metrics.lastResponseTime}ms</span>
+            </div>
+            <div className="metric-card">
+              <span className="metric-label">Cache Hits</span>
+              <span className="metric-value">{metrics.cacheHits}</span>
+            </div>
+            <div className="metric-card">
+              <span className="metric-label">Rate Limit Warnings</span>
+              <span className="metric-value">{metrics.rateLimitWarnings}</span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Response Quality Evaluation */}
+      {responseQuality && (
+        <section className="quality-evaluation">
+          <div className="section-heading compact">
+            <Target size={20} />
+            <h2>Response Quality Score</h2>
+          </div>
+          <div className="quality-grid">
+            <div className="quality-card">
+              <span className="quality-label">Relevance</span>
+              <div className="quality-bar">
+                <div
+                  className="quality-fill"
+                  style={{ width: `${responseQuality.relevance}%` }}
+                />
+              </div>
+              <span className="quality-score">
+                {responseQuality.relevance}/100
+              </span>
+            </div>
+            <div className="quality-card">
+              <span className="quality-label">Coherence</span>
+              <div className="quality-bar">
+                <div
+                  className="quality-fill"
+                  style={{ width: `${responseQuality.coherence}%` }}
+                />
+              </div>
+              <span className="quality-score">
+                {responseQuality.coherence}/100
+              </span>
+            </div>
+            <div className="quality-card">
+              <span className="quality-label">Actionability</span>
+              <div className="quality-bar">
+                <div
+                  className="quality-fill"
+                  style={{ width: `${responseQuality.actionability}%` }}
+                />
+              </div>
+              <span className="quality-score">
+                {responseQuality.actionability}/100
+              </span>
+            </div>
+            <div className="quality-card overall">
+              <span className="quality-label">Overall</span>
+              <div className="quality-bar">
+                <div
+                  className="quality-fill"
+                  style={{ width: `${responseQuality.overall}%` }}
+                />
+              </div>
+              <span className="quality-score">
+                {responseQuality.overall}/100
+              </span>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Validation Errors */}
+      {validationErrors.length > 0 && (
+        <section className="validation-errors">
+          <div className="section-heading compact">
+            <AlertCircle size={20} />
+            <h2>Profile Validation Issues</h2>
+          </div>
+          <ul className="error-list">
+            {validationErrors.map((err, idx) => (
+              <li key={idx}>{err}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="hero-panel scholarship-hero">
         <div className="hero-copy">
           <p className="eyebrow">AI application challenge submission</p>
@@ -627,7 +940,11 @@ function App() {
                 {conversation.map((msg, index) => (
                   <div
                     key={index}
-                    className={msg.role === "user" ? "chat-bubble user" : "chat-bubble assistant"}
+                    className={
+                      msg.role === "user"
+                        ? "chat-bubble user"
+                        : "chat-bubble assistant"
+                    }
                   >
                     {msg.content}
                   </div>
