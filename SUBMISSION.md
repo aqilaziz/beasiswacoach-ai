@@ -40,7 +40,7 @@ The project combines deterministic local analysis with optional OpenAI-powered r
 
 - Live demo URL: https://beasiswacoach-ai.vercel.app
 - Source code URL: https://github.com/aqilaziz/beasiswacoach-ai
-- Demo video URL: TODO
+- Demo video URL: (in submission-assets/beasiswacoach-demo.mp4 — 111s, 1280×720 HD)
 - LinkedIn post URL: https://www.linkedin.com/feed/update/urn:li:share:7474219876170244096/
 - LinkedIn group post URL: https://www.linkedin.com/feed/update/urn:li:groupPost:9371112-7474225017006813184
 
@@ -60,11 +60,21 @@ The project combines deterministic local analysis with optional OpenAI-powered r
 6. Explain that entering an OpenAI key enables live model review.
 7. Export the application pack JSON.
 
+## Submission Status (Updated June 27, 2026)
+
+| Checkpoint | Status |
+|---|---|
+| Day 0-7 | ✅ Complete |
+| Day 8 — Video Demo | ✅ Created (111s, 1280×720, 8.1 MB MP4) |
+| Day 8 — Final Submission | 🔒 Unlocks June 27, 13:00 WIB |
+| LinkedIn Post | ✅ Posted |
+| Community Blog | 📝 Content ready (COMMUNITY_BLOG.md), pending manual post |
+
 ## NAS submission steps
 
 1. Log in at `https://nas.com/login?redirectTo=/artificialintelligence/challenges/building-ai-application-jun`.
 2. Return to the challenge page and join the challenge if the button becomes available.
-3. Complete any required checkpoints.
+3. Complete any required checkpoints (currently 8/9, Day 8 unlocks June 27 13:00 WIB).
 4. Submit the live demo URL, source URL, video URL, and LinkedIn post URL.
 5. Use the short pitch and long description from this file.
 

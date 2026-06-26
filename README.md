@@ -28,6 +28,8 @@ This project is built for the Decoding Data Science **Building AI Application** 
 - **NEW Day 7:** 6-mode Coach system (Strategy, Essay, Interview, Financial Narrative, Portfolio, General) with specialized LLM prompts.
 - **NEW Day 7:** Temperature, max tokens, and conversation memory controls for fine-tuned LLM configuration.
 - **NEW Day 7:** Sliding window conversation memory for efficient multi-turn coaching.
+- **NEW Day 8:** Demo video (111s, 1280×720 HD MP4) with Indonesian narration.
+- **NEW Day 8:** Complete submission pack with workbook, video script, and community blog content.
 - Local fallback coach mode, so the app still works during demos without API access.
 - Downloadable JSON application pack.
 
@@ -75,9 +77,10 @@ Recommended options:
 - Deployed app URL: https://beasiswacoach-ai.vercel.app
 - GitHub repository: https://github.com/aqilaziz/beasiswacoach-ai
 - README with problem, solution, features, and run instructions.
-- 1-2 minute demo video showing profile analysis and exported application pack.
+- Demo video: 1 min 51 sec (111s), 1280×720 HD MP4, Indonesian narration — see `submission-assets/beasiswacoach-demo.mp4`
 - Screenshot of the app homepage and generated outputs.
 - LinkedIn post describing the problem, AI workflow, impact, and app link.
+- Community blog content ready in `COMMUNITY_BLOG.md`
 
 ## Suggested LinkedIn post
 
