@@ -25,6 +25,9 @@ This project is built for the Decoding Data Science **Building AI Application** 
 - Essay outline generator tailored to the student profile.
 - Interview practice question generator.
 - Optional OpenAI-powered coach review using an API key entered at runtime.
+- **NEW Day 7:** 6-mode Coach system (Strategy, Essay, Interview, Financial Narrative, Portfolio, General) with specialized LLM prompts.
+- **NEW Day 7:** Temperature, max tokens, and conversation memory controls for fine-tuned LLM configuration.
+- **NEW Day 7:** Sliding window conversation memory for efficient multi-turn coaching.
 - Local fallback coach mode, so the app still works during demos without API access.
 - Downloadable JSON application pack.
 
@@ -54,14 +57,18 @@ Recommended options:
 2. Netlify: build command `npm run build`, publish directory `dist`.
 3. GitHub Pages: run the build and publish the `dist` folder.
 
-## Demo script
+## Demo script (Updated Day 7)
 
 1. Open BeasiswaCoach AI.
 2. Explain the target user: Indonesian students preparing scholarship applications.
 3. Edit a student profile field and show that scores, scholarship matches, roadmap, essay outline, interview questions, and summary update instantly.
-4. Click **Review application** with no API key to show local AI coach mode.
-5. Export the application pack JSON.
-6. Show the deployed URL and explain how an OpenAI key can enable live model review.
+4. Enter an OpenAI API key and select a **Coach Mode** (Strategy, Essay, Interview, Financial, Portfolio, or General).
+5. Toggle **Advanced Settings** to show temperature, max tokens, and conversation memory controls.
+6. Click **Review application** and show the live streaming AI response.
+7. Demonstrate the response quality evaluation dashboard.
+8. Show the **Quick Actions** for follow-up coaching in chat mode.
+9. Export the application pack JSON.
+10. Show the deployed URL and explain the coach mode system.
 
 ## Final submission assets
 

@@ -21,8 +21,11 @@ import {
   Loader2,
   Mic,
   RefreshCw,
+  Settings2,
+  SlidersHorizontal,
   Sparkles,
   Target,
+  Thermometer,
   ThumbsDown,
   ThumbsUp,
   Zap,
@@ -383,6 +386,15 @@ type ChatMessage = {
   content: string;
 };
 
+type CoachMode = "strategy" | "essay" | "interview" | "financial" | "portfolio" | "general";
+
+type LlmConfig = {
+  temperature: number;
+  maxTokens: number;
+  coachMode: CoachMode;
+  conversationWindow: number;
+};
+
 type FeedbackEntry = {
   question: string;
   rating: "up" | "down";
@@ -509,21 +521,58 @@ function validateProfileInput(profile: StudentProfile): {
 }
 
 function preprocessInput(text: string): string {
-  // Remove extra whitespace and normalize
-  return text
-    .replace(/\s+/g, " ")
-    .replace(/[^\w\s.,!?-]/g, "")
-    .trim();
+  return text.replace(/\s+/g, " ").replace(/[^\w\s.,!?-]/g, "").trim();
 }
+
+// ─── Day 7: Advanced Prompt Engineering System ───
+const COACH_MODE_LABELS: Record<CoachMode, string> = {
+  strategy: "Strategy Coach",
+  essay: "Essay Coach",
+  interview: "Interview Coach",
+  financial: "Financial Narrative Coach",
+  portfolio: "Portfolio Coach",
+  general: "General Coach",
+};
+
+const COACH_MODE_PROMPTS: Record<CoachMode, string> = {
+  strategy: `You are a senior scholarship strategy coach for Indonesian/ASEAN programs (LPDP, KSE, Djarum, ADS, AAS, DAAD, MEXT, Fulbright). Map the student profile to specific scholarships. Identify 3-5 highest-leverage 60-day actions. Prioritize by deadline urgency. Suggest backup tracks. Output with: ## Top Scholarship Targets, ## 60-Day Priority Actions, ## Profile Gaps, ## Backup Strategy.`,
+  essay: `You are an admissions essay coach. Find the unique angle in the student background. Structure: hook -> problem -> journey -> evidence -> vision. Show, don't tell. Address financial need with dignity. Connect goals to community impact. Output with: ## Essay Structure, ## Opening Hook Ideas, ## Key Evidence, ## Financial Narrative, ## Closing Vision.`,
+  interview: `You are a scholarship interview coach. Use STAR method (Situation, Task, Action, Result) for behavioral questions. Challenge weak answers with follow-up probes. Provide model answers. Flag cultural nuances for international panels. Output with: ## Mock Questions, ## Trap Questions, ## Delivery Tips, ## Self-Checklist.`,
+  financial: `You are a financial aid narrative specialist. Frame financial need as an investment case, not a plea. Quantify the gap. Show resourcefulness. Connect funding to specific outcomes. Never use guilt. Output with: ## Financial Gap, ## Resourcefulness Evidence, ## ROI Statement, ## Budget Framework, ## Dignified Language.`,
+  portfolio: `You are a technical portfolio coach. Audit GitHub profile: README, commits, docs. Select top 3-5 projects. Require demo artifacts: screenshots, live links, videos. Guide technical reflection writing. Output with: ## Portfolio Audit, ## Top Projects, ## README Standards, ## Demo Requirements, ## Reflection Template.`,
+  general: `You are a scholarship admissions coach for Indonesian students. Be honest and specific. Reference the student's actual profile in every recommendation. Structure all responses with clear sections and actionable steps. Push toward provable evidence: projects, certificates, scores. When the profile is weak, say so directly and suggest fixes. Output with: ## Key Observations, ## Top Priorities, ## Specific Actions, ## Risk Areas.`,
+};
+
+function buildSystemPrompt(profile: StudentProfile, mode: CoachMode): string {
+  const basePrompt = COACH_MODE_PROMPTS[mode];
+  const profileContext = `## Student Profile\n- Name: ${profile.name}\n- Education: ${profile.educationLevel}\n- Field: ${profile.field}\n- Region: ${profile.targetCountry}\n- Grades: ${profile.gpa}\n- English: ${profile.english}\n- Achievements: ${profile.achievements}\n- Leadership: ${profile.leadership}\n- Financial: ${profile.financialNeed}\n- Goal: ${profile.goal}\n- Deadlines: ${profile.deadline}\n\nCRITICAL: Reference THIS specific student's details. Never give generic advice.`;
+  return basePrompt + "\n\n" + profileContext;
+}
+
+function trimConversation(messages: ChatMessage[], max: number): ChatMessage[] {
+  if (messages.length <= max) return messages;
+  return [messages[0], ...messages.slice(-(max - 1))];
+}
+
+const DEFAULT_LLM_CONFIG: LlmConfig = {
+  temperature: 0.35,
+  maxTokens: 600,
+  coachMode: "general",
+  conversationWindow: 12,
+};
 
 async function requestAiReview(
   profile: StudentProfile,
   apiKey: string,
   conversation: ChatMessage[],
+  config: LlmConfig = DEFAULT_LLM_CONFIG,
   retryCount = 0,
   onStream?: (partial: string) => void,
 ): Promise<string> {
-  const key = cacheKey(profile, conversation);
+  // Trim conversation to stay within window
+  const trimmed = trimConversation(conversation, config.conversationWindow);
+
+  const key = cacheKey(profile, trimmed) + `|${config.coachMode}|${config.temperature}|${config.maxTokens}`;
   const cached = responseCache.get(key);
   if (cached) {
     metricsHistory.cacheHits++;
@@ -533,8 +582,7 @@ async function requestAiReview(
 
   const systemMessage: ChatMessage = {
     role: "system",
-    content:
-      "You are a scholarship admissions coach for Indonesian students. Give practical, honest, specific advice. Avoid inventing real scholarship deadlines. Reference previous messages for context. Structure responses with clear sections and actionable steps.",
+    content: buildSystemPrompt(profile, config.coachMode),
   };
 
   const startTime = performance.now();
@@ -547,9 +595,9 @@ async function requestAiReview(
     },
     body: JSON.stringify({
       model: "gpt-4o-mini",
-      messages: [systemMessage, ...conversation],
-      temperature: 0.35,
-      max_tokens: 600,
+      messages: [systemMessage, ...trimmed],
+      temperature: config.temperature,
+      max_tokens: config.maxTokens,
       stream: !!onStream,
     }),
   });
@@ -567,6 +615,7 @@ async function requestAiReview(
         profile,
         apiKey,
         conversation,
+        config,
         retryCount + 1,
         onStream,
       );
@@ -719,6 +768,8 @@ function App() {
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>("disconnected");
   const [rateLimitWarning, setRateLimitWarning] = useState("");
+  const [llmConfig, setLlmConfig] = useState<LlmConfig>(DEFAULT_LLM_CONFIG);
+  const [showLlmSettings, setShowLlmSettings] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Save API key to localStorage when it changes
@@ -812,6 +863,7 @@ function App() {
         profile,
         apiKey.trim(),
         initialMessages,
+        llmConfig,
         0,
         (partial) => {
           setStreamingContent(partial);
@@ -889,6 +941,7 @@ function App() {
         profile,
         apiKey.trim(),
         newConversation,
+        llmConfig,
         0,
         (partial) => {
           setStreamingContent(partial);
@@ -1246,6 +1299,122 @@ function App() {
                 </small>
               )}
             </label>
+
+            {/* Day 7: Coach Mode Selector */}
+            {apiKey.trim() && (
+              <>
+                <label className="api-field">
+                  <span>Coach Mode</span>
+                  <select
+                    value={llmConfig.coachMode}
+                    onChange={(e) =>
+                      setLlmConfig((c) => ({
+                        ...c,
+                        coachMode: e.target.value as CoachMode,
+                      }))
+                    }
+                    className="coach-mode-select"
+                  >
+                    {(Object.entries(COACH_MODE_LABELS) as [CoachMode, string][]).map(
+                      ([mode, label]) => (
+                        <option key={mode} value={mode}>
+                          {label}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+
+                {/* LLM Settings Toggle */}
+                <button
+                  type="button"
+                  className="settings-toggle"
+                  onClick={() => setShowLlmSettings(!showLlmSettings)}
+                >
+                  <Settings2 size={14} />
+                  {showLlmSettings ? "Hide advanced settings" : "Advanced settings"}
+                </button>
+
+                {showLlmSettings && (
+                  <div className="llm-settings-panel">
+                    <label className="api-field">
+                      <span>
+                        <Thermometer size={14} /> Temperature:{" "}
+                        {llmConfig.temperature.toFixed(2)}
+                      </span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1.5"
+                        step="0.05"
+                        value={llmConfig.temperature}
+                        onChange={(e) =>
+                          setLlmConfig((c) => ({
+                            ...c,
+                            temperature: parseFloat(e.target.value),
+                          }))
+                        }
+                        className="llm-slider"
+                      />
+                      <small className="slider-hint">
+                        Lower = more focused | Higher = more creative
+                      </small>
+                    </label>
+
+                    <label className="api-field">
+                      <span>
+                        <SlidersHorizontal size={14} /> Max Tokens:{" "}
+                        {llmConfig.maxTokens}
+                      </span>
+                      <input
+                        type="range"
+                        min="100"
+                        max="2000"
+                        step="50"
+                        value={llmConfig.maxTokens}
+                        onChange={(e) =>
+                          setLlmConfig((c) => ({
+                            ...c,
+                            maxTokens: parseInt(e.target.value, 10),
+                          }))
+                        }
+                        className="llm-slider"
+                      />
+                      <small className="slider-hint">
+                        Controls response length and detail
+                      </small>
+                    </label>
+
+                    <label className="api-field">
+                      <span>Conversation Memory (messages)</span>
+                      <select
+                        value={llmConfig.conversationWindow}
+                        onChange={(e) =>
+                          setLlmConfig((c) => ({
+                            ...c,
+                            conversationWindow: parseInt(e.target.value, 10),
+                          }))
+                        }
+                        className="coach-mode-select"
+                      >
+                        <option value={6}>6 — Short memory (lower cost)</option>
+                        <option value={12}>12 — Balanced (default)</option>
+                        <option value={20}>20 — Long memory (best context)</option>
+                      </select>
+                    </label>
+
+                    <button
+                      type="button"
+                      className="cache-clear"
+                      onClick={() => setLlmConfig(DEFAULT_LLM_CONFIG)}
+                    >
+                      <RefreshCw size={12} /> Reset to defaults
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
             <button
               type="button"
               className="wide-button"
